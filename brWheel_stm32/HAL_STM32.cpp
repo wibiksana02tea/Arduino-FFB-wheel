@@ -1,88 +1,80 @@
 #include "HAL_STM32.h"
-#include <map> // For simulating hardware states
-#include <vector> // For simulating I2C bus
 
-// NOTE: This file requires the STM32 HAL library to be included in the project.
-// This implementation SIMULATES the hardware for development purposes.
-
-// --- Simulated Hardware State ---
-struct PinState {
-    uint8_t mode;
-    uint16_t value;
-};
-std::map<uint32_t, PinState> simulated_pins;
-std::map<uint8_t, std::vector<uint8_t>> i2c_device_memory; // Simulate memory for I2C devices
-// --------------------------------
-
-volatile uint32_t g_micros_count = 0;
+// --- HAL Function Implementations ---
+// This code assumes that the required peripherals (ADC, I2C, Timers)
+// have been initialized by the STM32CubeMX generated code.
 
 void hal_init() {
-    simulated_pins.clear();
-    i2c_device_memory.clear();
-    g_micros_count = 0;
+    // The main HAL_Init() and SystemClock_Config() are called in main.c
+    // We start the microsecond timer here.
+    HAL_TIM_Base_Start(&htim2);
 }
 
 // Timing functions
 uint32_t hal_micros() {
-    g_micros_count += 1000;
-    return g_micros_count;
+    // Assumes TIM2 is a 32-bit timer configured with a 1MHz clock (1us per tick)
+    return __HAL_TIM_GET_COUNTER(&htim2);
 }
 
 void hal_delay_ms(uint32_t ms) {
-    uint32_t start = hal_micros();
-    while((hal_micros() - start) < (ms * 1000));
+    HAL_Delay(ms);
 }
 
 // GPIO functions
-void hal_gpio_pin_mode(uint32_t pin, uint8_t mode) {
-    simulated_pins[pin].mode = mode;
-    if (mode == HAL_GPIO_INPUT_PULLUP) simulated_pins[pin].value = 1;
+// NOTE: GPIO pin modes are configured in the CubeMX-generated MX_GPIO_Init()
+// This function is kept for API compatibility but is not strictly needed.
+void hal_gpio_pin_mode(hal_pin_t gpio_pin, uint8_t mode) {
+    // Pin configuration is handled by CubeMX.
 }
 
-uint8_t hal_gpio_digital_read(uint32_t pin) {
-    return (simulated_pins.count(pin)) ? simulated_pins[pin].value : 0;
+uint8_t hal_gpio_digital_read(hal_pin_t gpio_pin) {
+    return HAL_GPIO_ReadPin(gpio_pin.port, gpio_pin.pin);
 }
 
-void hal_gpio_digital_write(uint32_t pin, uint8_t val) {
-    if (simulated_pins.count(pin) && simulated_pins[pin].mode == HAL_GPIO_OUTPUT_PP) {
-        simulated_pins[pin].value = val;
-    }
+void hal_gpio_digital_write(hal_pin_t gpio_pin, uint8_t val) {
+    HAL_GPIO_WritePin(gpio_pin.port, gpio_pin.pin, (GPIO_PinState)val);
 }
 
 // ADC functions
-void hal_adc_init() {}
-uint16_t hal_adc_read(uint32_t pin) { return 2048; }
+uint16_t hal_adc_read(hal_pin_t adc_pin) {
+    // This is a simplified ADC read for a single channel.
+    // A more robust implementation would handle multiple channels.
+    ADC_ChannelConfTypeDef sConfig = {0};
+    sConfig.Channel = adc_pin.pin; // NOTE: adc_pin.pin should correspond to an ADC_CHANNEL_x
+    sConfig.Rank = 1;
+    sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+    if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+    {
+        return 0; // Error
+    }
+
+    HAL_ADC_Start(&hadc1);
+    if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
+        return (uint16_t)HAL_ADC_GetValue(&hadc1);
+    }
+    return 0; // Timeout
+}
 
 // PWM functions
 void hal_pwm_init() {
-    hal_gpio_pin_mode(PWM_PIN_L, HAL_GPIO_OUTPUT_PP);
-    hal_gpio_pin_mode(PWM_PIN_R, HAL_GPIO_OUTPUT_PP);
+    // All PWM channels are started.
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
 }
 
-void hal_pwm_write(uint32_t pin, uint16_t value) {
-    if (simulated_pins.count(pin)) simulated_pins[pin].value = value;
+void hal_pwm_write(uint32_t pwm_channel, uint16_t value) {
+    // Assumes htim1 is configured for PWM on the specified channels
+    __HAL_TIM_SET_COMPARE(&htim1, pwm_channel, value);
 }
 
-// I2C functions (Simulated Implementation)
-void hal_i2c_init() {
-    // Initializes the simulated I2C bus
-}
-
+// I2C functions
 void hal_i2c_write(uint8_t address, uint8_t* data, uint32_t length) {
-    // Simulate writing data to an I2C device's memory
-    i2c_device_memory[address].assign(data, data + length);
+    // I2C address is 7-bit, HAL expects it shifted.
+    HAL_I2C_Master_Transmit(&hi2c1, (address << 1), data, length, HAL_MAX_DELAY);
 }
 
 void hal_i2c_read(uint8_t address, uint8_t* data, uint32_t length) {
-    // Simulate reading data from an I2C device.
-    // For AS5600, this would return angle data. We'll return a fixed value.
-    if (i2c_device_memory.count(address)) {
-        // This is a simplification. A real simulation would be more complex.
-    }
-    for(uint32_t i=0; i<length; ++i) data[i] = (i==0) ? 0x0C : 0x00; // Simulate some data
+    HAL_I2C_Master_Receive(&hi2c1, (address << 1), data, length, HAL_MAX_DELAY);
 }
-
-// The simple Wire-like functions are not strictly needed if using the above, but are here for compatibility.
-void hal_i2c_begin_transmission(uint8_t address) {}
-void hal_i2c_write_byte(uint8_t data) {}
-void hal_i2c_end_transmission() {}

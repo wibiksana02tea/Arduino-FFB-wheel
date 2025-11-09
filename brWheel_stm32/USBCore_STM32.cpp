@@ -1,70 +1,20 @@
 #include "USBCore_STM32.h"
-#include "debug.h" // For DEBUG_SERIAL
+#include "ffb_pro.h" // For gFFB object
 
-// This implementation SIMULATES the USB HID functionality.
+// --- Main HID Input Report Sending Function ---
 
-// --- HID Report Structure ---
-typedef struct {
-    int16_t x;
-    int16_t y;
-    int16_t z;
-    int16_t rz;
-    int16_t rx;
-    uint32_t buttons;
-} HID_InputReport_t;
-// --------------------------
-
-USBDevice_ USBDevice;
-bool _usb_configured = false;
-
-USBDevice_::USBDevice_() {}
-
-void USBDevice_::attach() {
-    // In a real implementation, this would start the USB peripheral.
-    _usb_configured = true;
+void USB_SendInputReport(void* report, uint16_t len) {
+    // This function sends the standard joystick input report to the host.
+    USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)report, len);
 }
 
-void USBDevice_::detach() {
-    _usb_configured = false;
-}
 
-bool USBDevice_::configured() {
-    // Simulate that the USB device is always configured after attach() is called.
-    return _usb_configured;
-}
+// --- Force Feedback (FFB) Handling ---
 
-void USBDevice_::poll() {}
-
-
-void SendInputReport(int16_t x, int16_t y, int16_t z, int16_t rz, int16_t rx, uint32_t buttons) {
-    if (!USBDevice.configured()) {
-        return;
-    }
-
-    HID_InputReport_t report;
-    report.x = x;
-    report.y = y;
-    report.z = z;
-    report.rz = rz;
-    report.rx = rx;
-    report.buttons = buttons;
-
-    // In a real implementation, this would call the STM32 HAL function to send the report.
-    // e.g., USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&report, sizeof(report));
-
-    // For simulation, we can print the report data.
-    // DEBUG_SERIAL.print("HID Report: X=");
-    // DEBUG_SERIAL.print(x);
-    // DEBUG_SERIAL.print(" Y=");
-    // DEBUG_SERIAL.print(y);
-    // ... and so on
-}
-
-// FFB (OUT report) functions remain as stubs for now.
-bool HID_ReportAvailable() {
-    return false;
-}
-
-int16_t HID_ReceiveReport(uint8_t* buffer, int16_t len) {
-    return -1;
+// This callback function is called by the STM32 USB device stack (typically from usbd_hid.c)
+// when a HID OUT report is received from the host. This report contains the FFB commands.
+void HID_ReceiveReport_Callback(uint8_t* buffer, uint16_t len) {
+    // The received buffer contains the FFB data packet.
+    // We pass it to the FFB processing library.
+    gFFB.FfbOnUsbData(buffer, len);
 }
