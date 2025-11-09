@@ -9,6 +9,14 @@ Proyek ini adalah porting dari firmware `brWheel_my` untuk berjalan pada mikroko
 3.  **Papan STM32**: Papan pengembangan STM32 seperti "Blue Pill" (STM32F103C8) atau papan Nucleo.
 4.  **Programmer ST-Link**: Diperlukan untuk mengunggah firmware ke sebagian besar papan STM32.
 
+## GUI Konfigurasi
+
+Firmware ini dirancang untuk dikonfigurasi menggunakan GUI berbasis Processing. Anda dapat menemukan GUI di repositori berikut:
+
+*   **[Arduino FFB GUI](https://github.com/wibiksana02tea/Arduino-FFB-gui)**
+
+Untuk menggunakan GUI, Anda harus menjalankan sketsa Processing dan menghubungkannya ke port COM virtual yang dibuat oleh papan STM32 Anda.
+
 ## Langkah 1: Instal Dukungan Papan STM32 di Arduino IDE
 
 1.  Buka Arduino IDE.
@@ -29,7 +37,7 @@ Proyek ini adalah porting dari firmware `brWheel_my` untuk berjalan pada mikroko
 3.  **Konfigurasi Pengaturan Papan**:
     *   **Variant**: `STM32F103C8` (atau yang sesuai dengan chip Anda).
     *   **Upload method**: `STLink`.
-    *   **USB support**: `CDC (generic serial)` (jika Anda memerlukan output `Serial.print`).
+    *   **PENTING: Profil USB**: Buka `Tools > USB Profile` (atau nama serupa) dan pilih opsi yang mengaktifkan **HID dan CDC (Serial) secara bersamaan**. Namanya mungkin **`"HID (Joystick) + Serial"`** atau **`"Composite"`**. Ini sangat penting untuk mengaktifkan antarmuka joystick dan port COM virtual untuk GUI konfigurasi secara bersamaan.
 4.  **Edit `Config.h`**:
     *   Tinjau berkas `Config.h` di dalam proyek.
     *   Sesuaikan penetapan `_PIN` agar sesuai dengan cara Anda menyambungkan sensor, tombol, dan driver motor ke papan STM32 Anda.
@@ -48,4 +56,4 @@ Proyek ini adalah porting dari firmware `brWheel_my` untuk berjalan pada mikroko
 2.  **Hubungkan ke Komputer**: Hubungkan ST-Link ke komputer Anda melalui USB.
 3.  **Unggah**: Klik tombol "Upload" di Arduino IDE. IDE akan menggunakan ST-Link untuk mem-flash firmware ke mikrokontroler STM32.
 
-Setelah pengunggahan selesai, papan STM32 akan di-boot ulang dan harus dijumlahkan sebagai joystick umpan balik gaya di komputer Anda.
+Setelah pengunggahan selesai, papan STM32 akan di-boot ulang dan harus dijumlahkan sebagai joystick umpan balik gaya **DAN** sebagai port COM virtual di komputer Anda, memastikan kompatibilitas penuh dengan GUI.
